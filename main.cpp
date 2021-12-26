@@ -48,6 +48,7 @@ static struct ThreadSharedData
     bool Lock;
     bool Interrupt;
     bool Pause;
+    bool DualLock;
     int IdleIntervalMillis;
     Pixel PixelBuffer;
     HWND* hWnd;
@@ -87,6 +88,10 @@ void GetPixelData(Pixel* ptrPx)
 
 std::thread thread;
 
+HWND* pMainWindowHandle;
+WNDCLASSW* pMainWindowClass;
+WindowStructure* pWndStructure;
+
 void ThreadProc(ThreadSharedData* pSharedData)
 {
     pSharedData->Lock = true;
@@ -102,25 +107,17 @@ void ThreadProc(ThreadSharedData* pSharedData)
         {
             pSharedData->Pause = true;
         }
-
         if (pSharedData->Pause)
             continue;
         POINT p;
-        RECT rect;
         GetCursorPos(&p);
         Pixel tmp{};
         GetPixelData(&tmp, { p.x, p.y });
         if (!IsPixelEquals(tmp, pSharedData->PixelBuffer))
         {
             pSharedData->PixelBuffer = tmp;
-            GetWindowRect(*pSharedData->hWnd, &rect);
-            InvalidateRect(*pSharedData->hWnd, &rect, false);
+        	InvalidateRect(*pMainWindowHandle, 0, false);
         }
-
-
-
-        //printf("Thread tick %i,%i\n", pSharedData->PixelBuffer.m_Point.x, pSharedData->PixelBuffer.m_Point.y);
-
     }
     pSharedData->Lock = false;
 }
@@ -148,10 +145,6 @@ bool TerminateThread()
 
 
 typedef LRESULT (*WINPROC)(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-
-HWND* pMainWindowHandle;
-WNDCLASSW* pMainWindowClass;
-WindowStructure* pWndStructure;
 
 HWND Label_RelToX;
 HWND Label_RelToY;
@@ -218,13 +211,7 @@ LRESULT CALLBACK MainWindowLoop(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
         PostQuitMessage(0);
         break;
-    case WM_KEYDOWN:
-        if (wParam == VK_PAUSE)
-        {
-            SharedData.Pause = !SharedData.Pause;
-
-        }
-        break;
+    
     case WM_COMMAND:
         if (HIWORD(wParam) == EN_CHANGE)
         {
@@ -296,13 +283,6 @@ void CreateConsole()
 
 
 
-// Get pixel thread
-
-
-
-
-
-// **********************
 void InitResources()
 {
     pMainWindowHandle = (HWND*)malloc(sizeof(HWND));
@@ -413,8 +393,10 @@ void InitializeComponents()
     
 }
 
+
+
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR szCmdLine, int CmdShow) {
-    //CreateConsole();
+   // CreateConsole();
 
     InitResources();
     
@@ -423,9 +405,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR szCmdLin
     if (!CreateHandle(pMainWindowHandle, L"MainWindow", L"Pixel Finder", 0, pWndStructure))
         return 2;
     InitializeComponents();
+    
     ShowWindow(*pMainWindowHandle, SW_SHOW);
     UpdateWindow(*pMainWindowHandle);
-
+    
     InitThread();
 
     MSG msg;
